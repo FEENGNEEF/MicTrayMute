@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <Authors>Mic Tray Mute contributors</Authors>
+    <Company>Mic Tray Mute contributors</Company>
+    <Product>Mic Tray Mute</Product>
+    <Description>Small Windows tray app for muting and unmuting the current communications microphone.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <Copyright>Copyright (c) 2026 Mic Tray Mute contributors</Copyright>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Local SDK/bootstrap artifacts used during development in this workspace.
+dotnet-install.ps1
