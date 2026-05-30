@@ -4,6 +4,8 @@ Small Windows tray app for muting and unmuting the current communications microp
 
 It is useful when you want a persistent microphone status indicator in the system tray and a simple global hotkey for toggling mute. The app is hardware-agnostic: it works with any microphone and any keyboard, mouse, macro pad, Stream Deck, or automation tool that can send a keyboard shortcut.
 
+![Mic Tray Mute tray status preview](docs/tray-status-preview.svg)
+
 ## Features
 
 - Runs in the Windows system tray.
@@ -34,10 +36,15 @@ That gives you a persistent visual microphone state next to the system clock and
 - .NET 8 runtime to run.
 - .NET 8 SDK to build from source.
 
+## Download
+
+For now, build from source with the commands below. Release binaries can be published from GitHub Releases later.
+
 ## Build
 
 ```powershell
-cd "C:\OCode Tests\MicTrayMute"
+git clone https://github.com/FEENGNEEF/MicTrayMute.git
+cd MicTrayMute
 dotnet build -c Release
 ```
 
@@ -50,7 +57,7 @@ bin\Release\net8.0-windows\MicTrayMute.exe
 ## Run
 
 ```powershell
-& "C:\OCode Tests\MicTrayMute\bin\Release\net8.0-windows\MicTrayMute.exe"
+.\bin\Release\net8.0-windows\MicTrayMute.exe
 ```
 
 The app starts in the tray and immediately mutes the microphone.
@@ -60,7 +67,7 @@ The app starts in the tray and immediately mutes the microphone.
 Create a shortcut to:
 
 ```text
-C:\OCode Tests\MicTrayMute\bin\Release\net8.0-windows\MicTrayMute.exe
+<repo>\bin\Release\net8.0-windows\MicTrayMute.exe
 ```
 
 Place the shortcut into:
@@ -145,6 +152,7 @@ Mic Tray Mute does not record audio, inspect audio streams, send telemetry, or u
 - The app toggles the Windows endpoint mute state. Apps with their own independent mute button may show a separate mute state.
 - By default, the app controls the default Windows communications recording device. If Windows changes that default device after plugging in a headset, the app follows the new default.
 - The app must be running for the tray indicator and hotkey to work.
+- Windows does not provide a supported API for apps to force their tray icon into the always-visible taskbar area.
 
 ## License
 
