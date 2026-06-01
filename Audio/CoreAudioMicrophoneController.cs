@@ -5,21 +5,30 @@ namespace MicTrayMute.Audio;
 internal sealed class CoreAudioMicrophoneController
 {
     private readonly string _deviceNameContains;
+    private readonly bool _muteAllCaptureDevices;
     private readonly bool _preferDefaultCaptureDevice;
     private readonly bool _fallbackToDefaultCaptureDevice;
 
     public CoreAudioMicrophoneController(
         string deviceNameContains,
+        bool muteAllCaptureDevices,
         bool preferDefaultCaptureDevice,
         bool fallbackToDefaultCaptureDevice)
     {
         _deviceNameContains = deviceNameContains;
+        _muteAllCaptureDevices = muteAllCaptureDevices;
         _preferDefaultCaptureDevice = preferDefaultCaptureDevice;
         _fallbackToDefaultCaptureDevice = fallbackToDefaultCaptureDevice;
     }
 
     public void SetMuted(bool muted)
     {
+        if (_muteAllCaptureDevices)
+        {
+            SetAllCaptureDevicesMuted(muted);
+            return;
+        }
+
         using var endpoint = GetEndpointVolume();
         var context = Guid.Empty;
         Marshal.ThrowExceptionForHR(endpoint.Volume.SetMute(muted, ref context));
@@ -27,6 +36,11 @@ internal sealed class CoreAudioMicrophoneController
 
     public bool GetMuted()
     {
+        if (_muteAllCaptureDevices)
+        {
+            return GetAllCaptureDevicesMuted();
+        }
+
         using var endpoint = GetEndpointVolume();
         Marshal.ThrowExceptionForHR(endpoint.Volume.GetMute(out var muted));
         return muted;
@@ -125,6 +139,169 @@ internal sealed class CoreAudioMicrophoneController
             if (collection is not null)
             {
                 Marshal.ReleaseComObject(collection);
+            }
+        }
+    }
+
+    private void SetAllCaptureDevicesMuted(bool muted)
+    {
+        IMMDeviceEnumerator? enumerator = null;
+        IMMDeviceCollection? collection = null;
+        var changedCount = 0;
+
+        try
+        {
+            enumerator = CreateDeviceEnumerator();
+            Marshal.ThrowExceptionForHR(enumerator.EnumAudioEndpoints(
+                EDataFlow.Capture,
+                DeviceState.Active,
+                out collection));
+
+            Marshal.ThrowExceptionForHR(collection.GetCount(out var count));
+
+            for (uint i = 0; i < count; i++)
+            {
+                Marshal.ThrowExceptionForHR(collection.Item(i, out var device));
+                try
+                {
+                    try
+                    {
+                        SetDeviceMuted(device, muted);
+                        changedCount++;
+                    }
+                    catch
+                    {
+                        // Some virtual or stale capture endpoints can reject endpoint-volume changes.
+                        // Keep muting the rest so real microphones are still covered.
+                    }
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(device);
+                }
+            }
+
+            if (changedCount == 0)
+            {
+                throw new InvalidOperationException("No active capture devices were found.");
+            }
+        }
+        finally
+        {
+            if (collection is not null)
+            {
+                Marshal.ReleaseComObject(collection);
+            }
+
+            if (enumerator is not null)
+            {
+                Marshal.ReleaseComObject(enumerator);
+            }
+        }
+    }
+
+    private bool GetAllCaptureDevicesMuted()
+    {
+        IMMDeviceEnumerator? enumerator = null;
+        IMMDeviceCollection? collection = null;
+        var checkedCount = 0;
+
+        try
+        {
+            enumerator = CreateDeviceEnumerator();
+            Marshal.ThrowExceptionForHR(enumerator.EnumAudioEndpoints(
+                EDataFlow.Capture,
+                DeviceState.Active,
+                out collection));
+
+            Marshal.ThrowExceptionForHR(collection.GetCount(out var count));
+
+            for (uint i = 0; i < count; i++)
+            {
+                Marshal.ThrowExceptionForHR(collection.Item(i, out var device));
+                try
+                {
+                    try
+                    {
+                        checkedCount++;
+                        if (!GetDeviceMuted(device))
+                        {
+                            return false;
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore endpoints that cannot report mute state.
+                    }
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(device);
+                }
+            }
+
+            return checkedCount > 0;
+        }
+        finally
+        {
+            if (collection is not null)
+            {
+                Marshal.ReleaseComObject(collection);
+            }
+
+            if (enumerator is not null)
+            {
+                Marshal.ReleaseComObject(enumerator);
+            }
+        }
+    }
+
+    private static void SetDeviceMuted(IMMDevice device, bool muted)
+    {
+        IAudioEndpointVolume? volume = null;
+        try
+        {
+            var iid = typeof(IAudioEndpointVolume).GUID;
+            Marshal.ThrowExceptionForHR(device.Activate(
+                ref iid,
+                ClsCtx.All,
+                IntPtr.Zero,
+                out var endpointObject));
+
+            volume = (IAudioEndpointVolume)endpointObject;
+            var context = Guid.Empty;
+            Marshal.ThrowExceptionForHR(volume.SetMute(muted, ref context));
+        }
+        finally
+        {
+            if (volume is not null)
+            {
+                Marshal.ReleaseComObject(volume);
+            }
+        }
+    }
+
+    private static bool GetDeviceMuted(IMMDevice device)
+    {
+        IAudioEndpointVolume? volume = null;
+        try
+        {
+            var iid = typeof(IAudioEndpointVolume).GUID;
+            Marshal.ThrowExceptionForHR(device.Activate(
+                ref iid,
+                ClsCtx.All,
+                IntPtr.Zero,
+                out var endpointObject));
+
+            volume = (IAudioEndpointVolume)endpointObject;
+            Marshal.ThrowExceptionForHR(volume.GetMute(out var muted));
+            return muted;
+        }
+        finally
+        {
+            if (volume is not null)
+            {
+                Marshal.ReleaseComObject(volume);
             }
         }
     }

@@ -18,6 +18,7 @@ It is useful when you want a persistent microphone status indicator in the syste
 - Mutes the microphone automatically on startup.
 - Shows a Windows notification when the state changes.
 - Uses Windows Core Audio API directly through COM interop.
+- Mutes all active recording devices by default, so apps using a non-default microphone are covered too.
 - No hardware vendor dependency.
 
 ## Recommended Setup
@@ -124,6 +125,7 @@ Default settings:
 ```json
 {
   "DeviceNameContains": "",
+  "MuteAllCaptureDevices": true,
   "PreferDefaultCaptureDevice": true,
   "IsMuted": true,
   "ShowNotifications": true,
@@ -131,13 +133,23 @@ Default settings:
 }
 ```
 
-With `PreferDefaultCaptureDevice` enabled, the app controls the default Windows communications recording device.
+With `MuteAllCaptureDevices` enabled, the app controls every active Windows recording device. This is the safest default for apps such as Discord that may use a specific microphone instead of the Windows default.
+
+If you want to control only the default Windows communications recording device, set:
+
+```json
+{
+  "MuteAllCaptureDevices": false,
+  "PreferDefaultCaptureDevice": true
+}
+```
 
 If you want to target a specific microphone by name, set:
 
 ```json
 {
   "DeviceNameContains": "Your microphone name",
+  "MuteAllCaptureDevices": false,
   "PreferDefaultCaptureDevice": false,
   "FallbackToDefaultCaptureDevice": false
 }
@@ -150,7 +162,7 @@ Mic Tray Mute does not record audio, inspect audio streams, send telemetry, or u
 ## Limitations
 
 - The app toggles the Windows endpoint mute state. Apps with their own independent mute button may show a separate mute state.
-- By default, the app controls the default Windows communications recording device. If Windows changes that default device after plugging in a headset, the app follows the new default.
+- By default, the app controls all active Windows recording devices. You can switch to default-device or name-based targeting in settings.
 - The app must be running for the tray indicator and hotkey to work.
 - Windows does not provide a supported API for apps to force their tray icon into the always-visible taskbar area.
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Mute all active recording devices by default so apps using a non-default input device are covered.
+
 ## 0.1.0
 
 - Initial public version.

@@ -24,6 +24,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _microphone = new CoreAudioMicrophoneController(
             _settings.DeviceNameContains,
+            _settings.MuteAllCaptureDevices,
             _settings.PreferDefaultCaptureDevice,
             _settings.FallbackToDefaultCaptureDevice);
 
