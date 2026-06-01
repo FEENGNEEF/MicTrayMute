@@ -5,17 +5,22 @@ namespace MicTrayMute.Audio;
 internal sealed class CoreAudioMicrophoneController
 {
     private readonly string _deviceNameContains;
+    private readonly string _deviceId;
     private readonly bool _muteAllCaptureDevices;
     private readonly bool _preferDefaultCaptureDevice;
     private readonly bool _fallbackToDefaultCaptureDevice;
 
+    public string LastOperationSummary { get; private set; } = "";
+
     public CoreAudioMicrophoneController(
         string deviceNameContains,
+        string deviceId,
         bool muteAllCaptureDevices,
         bool preferDefaultCaptureDevice,
         bool fallbackToDefaultCaptureDevice)
     {
         _deviceNameContains = deviceNameContains;
+        _deviceId = NormalizeDeviceId(deviceId);
         _muteAllCaptureDevices = muteAllCaptureDevices;
         _preferDefaultCaptureDevice = preferDefaultCaptureDevice;
         _fallbackToDefaultCaptureDevice = fallbackToDefaultCaptureDevice;
@@ -32,6 +37,7 @@ internal sealed class CoreAudioMicrophoneController
         using var endpoint = GetEndpointVolume();
         var context = Guid.Empty;
         Marshal.ThrowExceptionForHR(endpoint.Volume.SetMute(muted, ref context));
+        LastOperationSummary = $"Set mute={muted} on selected capture device.";
     }
 
     public bool GetMuted()
@@ -55,7 +61,11 @@ internal sealed class CoreAudioMicrophoneController
         {
             enumerator = CreateDeviceEnumerator();
 
-            if (_preferDefaultCaptureDevice)
+            if (!string.IsNullOrWhiteSpace(_deviceId))
+            {
+                Marshal.ThrowExceptionForHR(enumerator.GetDevice(_deviceId, out device));
+            }
+            else if (_preferDefaultCaptureDevice)
             {
                 device = GetDefaultCaptureDevice(enumerator);
             }
@@ -148,6 +158,8 @@ internal sealed class CoreAudioMicrophoneController
         IMMDeviceEnumerator? enumerator = null;
         IMMDeviceCollection? collection = null;
         var changedCount = 0;
+        var changedNames = new List<string>();
+        var failedNames = new List<string>();
 
         try
         {
@@ -164,15 +176,18 @@ internal sealed class CoreAudioMicrophoneController
                 Marshal.ThrowExceptionForHR(collection.Item(i, out var device));
                 try
                 {
+                    var friendlyName = GetFriendlyName(device);
                     try
                     {
                         SetDeviceMuted(device, muted);
                         changedCount++;
+                        changedNames.Add(friendlyName);
                     }
-                    catch
+                    catch (Exception ex)
                     {
                         // Some virtual or stale capture endpoints can reject endpoint-volume changes.
                         // Keep muting the rest so real microphones are still covered.
+                        failedNames.Add($"{friendlyName} ({ex.Message})");
                     }
                 }
                 finally
@@ -183,8 +198,15 @@ internal sealed class CoreAudioMicrophoneController
 
             if (changedCount == 0)
             {
+                LastOperationSummary = failedNames.Count == 0
+                    ? "No active capture devices were changed."
+                    : $"No active capture devices were changed. Failed: {string.Join("; ", failedNames)}";
                 throw new InvalidOperationException("No active capture devices were found.");
             }
+
+            LastOperationSummary = failedNames.Count == 0
+                ? $"Set mute={muted} on {changedCount} capture device(s): {string.Join(", ", changedNames)}"
+                : $"Set mute={muted} on {changedCount} capture device(s): {string.Join(", ", changedNames)}. Failed: {string.Join("; ", failedNames)}";
         }
         finally
         {
@@ -348,6 +370,17 @@ internal sealed class CoreAudioMicrophoneController
             ?? throw new InvalidOperationException("Could not resolve Windows audio device enumerator COM type.");
         return (IMMDeviceEnumerator)(Activator.CreateInstance(type)
             ?? throw new InvalidOperationException("Could not create Windows audio device enumerator."));
+    }
+
+    private static string NormalizeDeviceId(string deviceId)
+    {
+        const string mmdevapiPrefix = @"SWD\MMDEVAPI\";
+        if (deviceId.StartsWith(mmdevapiPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return deviceId[mmdevapiPrefix.Length..];
+        }
+
+        return deviceId;
     }
 
     private sealed class EndpointVolumeHandle : IDisposable

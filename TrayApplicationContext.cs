@@ -19,11 +19,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     public TrayApplicationContext()
     {
+        AppLog.Info("Application starting.");
         _settings = _settingsStore.Load();
+        AppLog.Info($"Settings loaded. MuteAllCaptureDevices={_settings.MuteAllCaptureDevices}, DeviceNameContains='{_settings.DeviceNameContains}', PreferDefaultCaptureDevice={_settings.PreferDefaultCaptureDevice}.");
         _settings.IsMuted = true;
 
         _microphone = new CoreAudioMicrophoneController(
             _settings.DeviceNameContains,
+            _settings.DeviceId,
             _settings.MuteAllCaptureDevices,
             _settings.PreferDefaultCaptureDevice,
             _settings.FallbackToDefaultCaptureDevice);
@@ -57,11 +60,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try
         {
             _hotkey.Register();
+            AppLog.Info("Ctrl+Alt+M hotkey registered.");
             await SetMutedAsync(true, showNotification: false);
             ShowNotification("Microphone muted", "The microphone was muted on startup.");
         }
         catch (Exception ex)
         {
+            AppLog.Error("Startup failed", ex);
             UpdateTrayIcon();
             ShowError("Startup failed", ex);
         }
@@ -69,6 +74,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private async Task ToggleAsync()
     {
+        AppLog.Info($"Toggle requested. Current muted state={_settings.IsMuted}.");
         await SetMutedAsync(!_settings.IsMuted, showNotification: true);
     }
 
@@ -78,8 +84,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try
         {
             _microphone.SetMuted(muted);
+            AppLog.Info(_microphone.LastOperationSummary);
             _settings.IsMuted = muted;
             _settingsStore.Save(_settings);
+            AppLog.Info($"State saved. IsMuted={_settings.IsMuted}.");
 
             UpdateTrayIcon();
 
@@ -87,11 +95,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             {
                 ShowNotification(
                     muted ? "Microphone muted" : "Microphone active",
-                    muted ? "Input is off." : "Input is on.");
+                    _microphone.LastOperationSummary);
             }
         }
         catch (Exception ex)
         {
+            AppLog.Error("Toggle failed", ex);
             UpdateTrayIcon();
             ShowError("Toggle failed", ex);
         }

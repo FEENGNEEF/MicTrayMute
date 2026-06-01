@@ -125,6 +125,7 @@ Default settings:
 ```json
 {
   "DeviceNameContains": "",
+  "DeviceId": "",
   "MuteAllCaptureDevices": true,
   "PreferDefaultCaptureDevice": true,
   "IsMuted": true,
@@ -149,6 +150,17 @@ If you want to target a specific microphone by name, set:
 ```json
 {
   "DeviceNameContains": "Your microphone name",
+  "MuteAllCaptureDevices": false,
+  "PreferDefaultCaptureDevice": false,
+  "FallbackToDefaultCaptureDevice": false
+}
+```
+
+If Core Audio endpoint enumeration is unreliable on a machine, target a specific Windows endpoint ID directly:
+
+```json
+{
+  "DeviceId": "{0.0.1.00000000}.{YOUR-ENDPOINT-GUID}",
   "MuteAllCaptureDevices": false,
   "PreferDefaultCaptureDevice": false,
   "FallbackToDefaultCaptureDevice": false

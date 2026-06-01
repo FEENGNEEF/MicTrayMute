@@ -29,7 +29,8 @@ internal sealed class GlobalHotkey : NativeWindow, IDisposable
 
         if (!RegisterHotKey(Handle, HotkeyId, ModControl | ModAlt | ModNoRepeat, (uint)Keys.M))
         {
-            throw new InvalidOperationException("Could not register Ctrl+Alt+M. Another application may already use it.");
+            var error = Marshal.GetLastWin32Error();
+            throw new InvalidOperationException($"Could not register Ctrl+Alt+M. Win32 error: {error}.");
         }
 
         _registered = true;
@@ -62,6 +63,7 @@ internal sealed class GlobalHotkey : NativeWindow, IDisposable
     {
         if (m.Msg == WmHotkey && m.WParam.ToInt32() == HotkeyId)
         {
+            AppLog.Info("Ctrl+Alt+M hotkey received.");
             Pressed?.Invoke(this, EventArgs.Empty);
             return;
         }
